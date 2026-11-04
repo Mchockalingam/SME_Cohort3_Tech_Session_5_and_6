@@ -1,0 +1,4 @@
+# Core, offline workshop. Exact direct dependency versions tested on Python 3.12.
+langgraph==1.2.19
+langchain-core==1.7.5
+langgraph-checkpoint==4.3.1

@@ -1,0 +1,4 @@
+# Install only for optional live-model and SQLite extensions after class.
+-r requirements.txt
+langchain-openai==1.7.3
+langgraph-checkpoint-sqlite==3.1.3
