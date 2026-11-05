@@ -24,21 +24,25 @@ from langgraph.store.memory import InMemoryStore
 # STEP 1: The application supplies identity; chat text cannot change it.
 @dataclass(frozen=True)
 class UserContext:
+    # A frozen context prevents a request handler from accidentally changing identity mid-turn.
     tenant_id: str
     user_id: str
 
 
+# Use one stable record key and restrict saved preferences to supported values.
 PREFERENCE_KEY = "response_style"
 ALLOWED_STYLES = {"brief", "detailed"}
 
 
 def memory_namespace(context: UserContext) -> tuple[str, ...]:
+    # Hierarchical tenant/user keys keep each user's preference isolated from other identities.
     return ("tenants", context.tenant_id, "users", context.user_id, "preferences")
 
 
 def thread_config(context: UserContext, conversation_id: str) -> dict:
     # Unambiguous demo scope. A real server must also authenticate the caller
     # and verify ownership before accepting a conversation identifier.
+    # JSON encoding avoids collisions that could occur by joining IDs with a delimiter.
     thread_id = json.dumps(
         [context.tenant_id, context.user_id, conversation_id], separators=(",", ":")
     )
@@ -46,6 +50,7 @@ def thread_config(context: UserContext, conversation_id: str) -> dict:
 
 
 def read_style(store, namespace: tuple[str, ...]) -> str:
+    # A missing, malformed, or unsupported value falls back to the default style.
     item = store.get(namespace, PREFERENCE_KEY)
     value = item.value.get("value") if item is not None else None
     return value if isinstance(value, str) and value in ALLOWED_STYLES else "default"
@@ -53,17 +58,21 @@ def read_style(store, namespace: tuple[str, ...]) -> str:
 
 def build_graph(store: InMemoryStore, model=None):
     # STEP 2: The node receives the store AND per-invocation runtime context.
+    # If no model is provided, the graph uses deterministic simulated replies below.
     def assistant(state: MessagesState, runtime: Runtime[UserContext]):
+        # Derive the storage scope from trusted runtime context, not the user's message.
         namespace = memory_namespace(runtime.context)
         store = runtime.store
         request = str(state["messages"][-1].content).strip()
 
         # STEP 3: Only an explicit, allowlisted command writes a preference.
         if request.startswith("/remember style="):
+            # Everything after the first '=' is treated as the requested style and validated.
             style = request.split("=", 1)[1].strip()
             if style not in ALLOWED_STYLES:
                 reply = "Nothing saved. Choose brief or detailed."
             else:
+                # Store structured metadata so the demo records how and when the value was saved.
                 store.put(
                     namespace,
                     PREFERENCE_KEY,
@@ -75,12 +84,14 @@ def build_graph(store: InMemoryStore, model=None):
                 )
                 reply = f"Saved response_style={style} for future conversations."
         elif request == "/forget style":
+            # Delete only the saved preference; this does not remove chat history or checkpoints.
             store.delete(namespace, PREFERENCE_KEY)
             reply = (
                 "Deleted the saved style preference. Previous conversation "
                 "messages and checkpoints have not been erased."
             )
         elif request == "/profile":
+            # Report the validated saved value (or 'default' when there is none).
             reply = f"Saved response_style={read_style(store, namespace)}."
         else:
             # STEP 4: Read the profile on EVERY request, rather than copying
@@ -95,6 +106,7 @@ def build_graph(store: InMemoryStore, model=None):
                     "detailed": "Explain the reasoning behind each step.",
                     "default": "Use a concise, clear explanation.",
                 }[style]
+                # Keep the assistant's role and authorization limits explicit in live mode.
                 system = SystemMessage(
                     content=(
                         "You are a fictional enterprise IT support assistant. "
@@ -108,18 +120,21 @@ def build_graph(store: InMemoryStore, model=None):
                     )
                 )
                 # 700 is this demo's history allowance, not a model limit.
+                # Keep the newest complete human/assistant exchange boundaries for context.
                 history = trim_messages(
                     state["messages"], max_tokens=700, strategy="last",
                     token_counter=count_tokens_approximately,
                     start_on="human", end_on="human", allow_partial=False,
                 )
                 if not history:
+                    # Fail explicitly instead of invoking the model without the current request.
                     raise ValueError("Newest message exceeds the demo history allowance.")
                 response = model.invoke([system, *history])
                 return {"messages": [response]}
 
             # Deterministic stand-in: it consumes the selected profile, but
             # is not an LLM and does not interpret arbitrary support questions.
+            # Keep its output mapping aligned with the styles used in live mode.
             reply = {
                 "brief": "[Simulated] 1. Check the printer connection. 2. Check its queue.",
                 "detailed": (
@@ -128,9 +143,11 @@ def build_graph(store: InMemoryStore, model=None):
                 ),
                 "default": "[Simulated] Check the printer connection and its queue.",
             }[style]
+        # LangGraph appends this AI message to the conversation checkpoint.
         return {"messages": [AIMessage(content=reply)]}
 
     # STEP 5: Two separate backends: conversation checkpoints and user records.
+    # The checkpointer preserves each thread's transcript; the store is shared across threads.
     builder = StateGraph(MessagesState, context_schema=UserContext)
     builder.add_node("assistant", assistant)
     builder.add_edge(START, "assistant")
@@ -140,6 +157,7 @@ def build_graph(store: InMemoryStore, model=None):
 
 def invoke_turn(graph, context: UserContext, conversation_id: str, text: str):
     # Only the NEW user message is submitted. Context is supplied each time.
+    # The thread ID lets LangGraph retrieve this conversation's prior checkpointed messages.
     result = graph.invoke(
         {"messages": [HumanMessage(content=text)]},
         config=thread_config(context, conversation_id),
@@ -151,21 +169,25 @@ def invoke_turn(graph, context: UserContext, conversation_id: str, text: str):
 
 
 def main():
+    # Parse optional live-model settings while keeping the default demo offline and repeatable.
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--live", action="store_true", help="Make billable model API calls.")
     parser.add_argument("--model", help="A chat model identifier available to your account.")
     args = parser.parse_args()
     model = None
     if args.live:
+        # Require both the model name and API credential before importing/using the provider.
         if not args.model or not os.getenv("OPENAI_API_KEY"):
             parser.error("Live mode needs --model and the OPENAI_API_KEY environment variable.")
         from langchain_openai import ChatOpenAI
         model = ChatOpenAI(model=args.model, timeout=45, max_retries=1)
     elif args.model:
+        # A model name alone should not unexpectedly trigger network calls.
         parser.error("Use --live with --model, or omit both for the offline demo.")
 
     print("MODE: live LangChain chat model" if args.live else "MODE: offline, simulated replies")
     print("Both memory backends are in RAM; restarting this script clears them.\n")
+    # Create one shared store, then pass distinct identity contexts to demonstrate isolation.
     store = InMemoryStore()
     graph = build_graph(store, model)
     ananya = UserContext("acme", "ananya")
@@ -177,6 +199,7 @@ def main():
     assert read_style(store, memory_namespace(ananya)) == "brief"
 
     print("\nB. Same employee, NEW conversation: preference available, old transcript absent")
+    # A shared user store carries the preference across threads, while the new thread starts empty.
     result = invoke_turn(graph, ananya, "two", "My printer is not responding. What should I check?")
     assert len(result["messages"]) == 2
     assert not any("/remember" in str(m.content) for m in result["messages"])
@@ -202,4 +225,5 @@ def main():
 
 
 if __name__ == "__main__":
+    # Run the walkthrough only when executing this file directly, not when importing it.
     main()
