@@ -1,21 +1,14 @@
 # Conversation Memory and User Context in Agentic AI
-
-## A practical, 60-minute introduction using Python and LangGraph
-
-**Audience:** Engineers who are new to agent memory and user context.  
-**Prerequisite:** Basic familiarity with Python functions, dictionaries and running a script. No previous LangChain or LangGraph experience is required.  
-**Format:** Instructor explanation, three short demonstrations, a guided exercise and discussion.  
-**Running example:** An enterprise IT support assistant for fictional employees Ananya and Ravi.  
-**Prepared and checked:** 4 November 2026.  
-**Teaching time:** Exactly 60 minutes. Installation is completed before the session. Optional extensions are after-class material.
+  
+**Prerequisite:** Basic familiarity with Python functions, dictionaries and running a script. No previous LangChain or LangGraph experience is required.   
 
 All teaching content is in this Markdown file. All Python implementation is in separate `.py` files. Terminal commands below launch those files; there are no embedded Python programs to copy from the guide.
 
-> **Important for the instructor:** The default demonstrations use real LangGraph graphs, message state, checkpoints and stores, with clearly labelled, deterministic response simulations. They make no LLM calls and need no API key after installation. This makes the memory behaviour easy to inspect. Demo 2 also provides an optional live LangChain chat-model mode. The small workflows demonstrate the memory layer used by agents; they are not complete autonomous IT support agents.
+> **Important:** The default demonstrations use real LangGraph graphs, message state, checkpoints and stores, with clearly labelled, deterministic response simulations. They make no LLM calls and need no API key after installation. This makes the memory behaviour easy to inspect. Demo 2 also provides an optional live LangChain chat-model mode. The small workflows demonstrate the memory layer used by agents; they are not complete autonomous IT support agents.
 
 ## Learning outcomes
 
-By the end of the hour, participants should be able to:
+By the end of the session you will be able to:
 
 1. Explain conversation memory, saved user preferences, runtime context and model input in their own words.
 2. Continue a conversation using a LangGraph checkpointer and a stable thread identifier.
@@ -24,25 +17,9 @@ By the end of the hour, participants should be able to:
 5. Explain why storing information does not guarantee that a model can see it.
 6. Recognise the effects of trimming, stale preferences and incomplete forgetting.
 
-## The exact 60-minute agenda
-
-| Time | Minutes | Topic | Method and outcome |
-|---|---:|---|---|
-| 00:00–05:00 | 5 | Why memory matters | Act out a support conversation and identify the information needed for a follow-up. |
-| 05:00–13:00 | 8 | Understand memory and context | Distinguish conversation history, user preferences, application identity and model input. |
-| 13:00–20:00 | 7 | Map the concepts to LangGraph | Introduce state, nodes, edges, checkpointers, stores and runtime context. |
-| 20:00–30:00 | 10 | Demo 1: conversation memory | Compare no memory, the same thread and a new thread. |
-| 30:00–41:00 | 11 | Demo 2: user context across conversations | Save, retrieve, correct and forget a preference; check user and tenant separation. |
-| 41:00–48:00 | 7 | Guided exercise | Complete two small functions and run five provided scenarios. |
-| 48:00–55:00 | 7 | Select and maintain useful context | Run Demo 3; explain trimming, summaries and memory boundaries. |
-| 55:00–60:00 | 5 | Recap, knowledge checks and questions | Verify the key distinctions and answer questions. |
-| **Total** | **60** | | **Exactly 60 minutes, including explanation, demonstrations, guided practice and questions.** |
-
-**Pacing rule:** Teach Sections 1–8 during the hour. Use setup and the appendices as preparation or reference. Do not install dependencies or run the optional extensions during the teaching hour. If a participant has an environment problem, let them follow the instructor's output and complete the exercise afterwards.
-
 ## Before the session: setup and file map
 
-### What participants need
+### What you need
 
 Use Python 3.11 or 3.12, a terminal and a text editor. The package was executed with Python 3.12.14. Internet access is required to install dependencies; the default teaching path then runs locally without a model service. The optional live mode requires an approved provider account, an API key and an available chat model.
 
@@ -62,18 +39,18 @@ Use an environment without tracing enabled for the offline workshop. For an inst
 
 ### Files and when to use them
 
-| File | Purpose | When |
+| File | Purpose |
 |---|---|---|
-| `Conversation_Memory_and_User_Context_60_Minutes.md` | Complete instructor and participant guide | Whole session |
-| `demo_01_thread_memory.py` | Message state, checkpoints and separate conversations | 20:00–30:00 |
-| `demo_02_user_context.py` | Explicit preferences, runtime identity, stores, update and delete | 30:00–41:00 |
-| `exercise_context.py` | Two TODO functions for participants | 41:00–48:00 |
-| `solution_context.py` | Completed exercise and scenario checks | Instructor recovery/reference |
-| `demo_03_context_budget.py` | Selected model input versus stored history | 48:00–55:00 |
-| `optional_sqlite_restart.py` | Conversation persistence across separate processes | After class |
-| `requirements.txt` | Tested core dependency versions | Before class |
-| `requirements_optional.txt` | Optional live-model and SQLite dependencies | After class |
-| `requirements_verified_lock.txt` | Exact environment used for verification | Reproduction reference |
+| `Conversation_Memory_and_User_Context_60_Minutes.md` | Complete instructor and participant guide 
+| `demo_01_thread_memory.py` | Message state, checkpoints and separate conversations 
+| `demo_02_user_context.py` | Explicit preferences, runtime identity, stores, update and delete 
+| `exercise_context.py` | Two TODO functions for participants 
+| `solution_context.py` | Completed exercise and scenario checks
+| `demo_03_context_budget.py` | Selected model input versus stored history 
+| `optional_sqlite_restart.py` | Conversation persistence across separate processes
+| `requirements.txt` | Tested core dependency versions
+| `requirements_optional.txt` | Optional live-model and SQLite dependencies
+| `requirements_verified_lock.txt` | Exact environment used for verification
 
 The exercise starter intentionally raises `NotImplementedError` until its two TODOs are completed. That is the exercise, not an installation failure. The completed solution should end with five successful scenario checks.
 
@@ -87,40 +64,25 @@ The core versions actually executed are LangGraph **1.2.19**, LangChain Core **1
 
 ## 1. Why memory matters
 
-**Time: 00:00–05:00. Outcome: participants can identify what a follow-up depends on.**
-
-### Start with a familiar conversation
-
-Say:
-
 > Ananya contacts the IT helpdesk: “My VPN keeps disconnecting. I use Windows 11, and I have already restarted the VPN client.” A minute later she asks, “What should I try next?”
 
 Ask the room: **“If the assistant receives only the second sentence, what information is missing?”**
 
 Expected answers include the problem, the operating system and the action already attempted. A useful assistant should avoid asking the same basic questions again or immediately recommending the step Ananya has already tried.
 
-Now extend the story:
-
 > On another day, Ananya asks about a printer. She still prefers brief, numbered instructions. Should the printer conversation receive the entire VPN conversation?
 
 The desired behaviour is to use the relevant preference while keeping the unrelated incident history out of the new conversation.
 
-### Explain what the application does
-
 A model response depends on the information supplied for that request. A surrounding application or service may retain previous interactions, but a developer should not assume that a new model request automatically includes the right history. The application must preserve, retrieve and select what is needed.
 
-In this module, “remembering” means managing information outside the model and making it available when appropriate. It does not mean retraining the model or changing its weights. LangGraph supports thread memory through graph state and checkpoints, and cross-conversation information through stores. [1][2]
+In this module, “remembering” means managing information outside the model and making it available when appropriate. It does not mean retraining the model or changing its weights. LangGraph supports thread memory through graph state and checkpoints, and cross-conversation information through stores.
 
-**Instructor bridge:** “We need one place for the current conversation, another place for selected user preferences, and a deliberate way to choose what the assistant sees.”
-
-**Minute 4–5 check:** Ask participants to name one fact that belongs to the current support incident and one preference that could be useful in a later incident.
+“We need one place for the current conversation, another place for selected user preferences, and a deliberate way to choose what the assistant sees.”
 
 ---
 
 ## 2. Understand memory and context
-
-**Time: 05:00–13:00. Outcome: participants can distinguish four commonly confused ideas.**
-
 ### 2.1 Four ideas, with helpdesk analogies
 
 | Idea | Plain meaning | Helpdesk analogy | Example in this lesson |
@@ -133,8 +95,6 @@ In this module, “remembering” means managing information outside the model a
 Runtime context and model input context are different. A user identifier can help application code retrieve a preference without being included in the prompt. Passing a value as LangGraph runtime context does not automatically make that value visible to the model. [3]
 
 ### 2.2 One user can have many conversations
-
-Introduce these identifiers in words before opening code:
 
 | Identifier | Identifies | Example | Normally changes when a new chat starts? |
 |---|---|---|---|
