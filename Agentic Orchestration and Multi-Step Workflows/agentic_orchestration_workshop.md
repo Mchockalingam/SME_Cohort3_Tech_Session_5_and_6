@@ -1,47 +1,15 @@
 # Agentic Orchestration and Multi-Step Workflows
 
-**90-minute instructor-led beginner workshop | Technical architecture and hands-on lab**
-
-**Audience:** Software engineers, technical architects, AI practitioners, and technology professionals who have heard of LLMs but are new to agent orchestration.
-
 **Companion file:** `agentic_orchestration_demo.py` — the complete runnable, line-by-line annotated Python implementation. All application code is kept in that file. The small terminal commands below are only for installation and running the workshop.
 
 **Teaching approach:** One familiar enterprise problem is used throughout. Concepts are introduced using a picture and an analogy, followed by a code walkthrough, controlled demonstrations, and participant exercises. This is a **single agentic workflow with an optional LLM planner**, not a demonstration of multiple autonomous agents. The distinction is intentional.
 
-## 1. Workshop outcomes
-
-By the end of 90 minutes, a participant should be able to:
-
-1. Explain what orchestration means in an AI application and why a single prompt is not sufficient for many enterprise processes.
-2. Distinguish a **workflow**, an **agentic workflow**, and a **multi-agent system**.
-3. Identify **state, nodes, edges, tools, conditional routing, fan-out/fan-in, loops, and checkpoints** in a LangGraph application.
-4. Follow a multi-step business request through evidence gathering, planning, human review, action, verification, and a final result.
-5. Run and modify an introductory LangGraph application without connecting to a live business system.
-6. Describe basic safeguards: human approval, bounded retries, auditability, validation, least privilege, and safe escalation.
-
-### What this module assumes
-
+### Assumption
 - Participants can read basic Python functions, dictionaries, and conditional statements. Deep knowledge of AI frameworks is **not** required.
 - Participants have Python 3.11 or later, a terminal, and an editor such as VS Code.
 - The **default demo works without an API key**. In this mode, a transparent rule-based planner stands in for the language model so learners can focus on orchestration.
 - An optional **live** mode uses `ChatOpenAI` through LangChain to select a structured plan. That mode requires a valid model API key, network access, and may incur API charges. Live mode is the AI-assisted variant; demo mode demonstrates the same graph mechanics without model inference.
 - All dashboard information, runbooks, and remediation outputs are **simulated**. The script never modifies production infrastructure, sends email, or creates a real ticket.
-
-## 2. Minute-by-minute facilitator schedule
-
-| Time | Duration | Segment | Instructor action | Participant outcome |
-|---|---:|---|---|---|
-| 00:00–00:10 | 10 min | Why orchestration? | Start with a VPN incident story; contrast a single answer and a completed process. | Recognize the need for a coordinated series of steps. |
-| 00:10–00:25 | 15 min | Essential vocabulary and patterns | Explain workflow vs agent; teach state, nodes, edges, tools, sequence, branch, parallelism, loop, and approval. | Speak the core terminology and identify patterns. |
-| 00:25–00:40 | 15 min | Draw the enterprise workflow | Walk through the reference graph and show how state evolves; discuss approval and retry decisions. | Trace an incident from intake to closure. |
-| 00:40–00:55 | 15 min | Guided Python/LangGraph walkthrough | Map functions in the companion `.py` file to the graph; show the LLM option and tool boundaries. | Know where each architecture concept appears in code. |
-| 00:55–01:08 | 13 min | Live demonstration | Run approved VPN, denied VPN, and email or unknown case; inspect events. | Observe branching, pause/resume, and bounded retry. |
-| 01:08–01:22 | 14 min | Participant lab | Learners execute the scenarios, change retry limit, and propose another branch. | Modify and explain a running multi-step workflow. |
-| 01:22–01:27 | 5 min | Reliability and production readiness | Discuss failure handling, prompt injection, authorization, observation, testing, and cost. | Identify what must change before production use. |
-| 01:27–01:30 | 3 min | Knowledge check and wrap | Ask rapid questions and give the architecture takeaway. | Consolidate concepts and next steps. |
-| **Total** | **90 min** | | | |
-
-> **Facilitator tip:** A 90-minute session can easily overrun if the installation starts in the room. Ask learners to complete the setup before the session. Keep 1–2 preinstalled machines ready to share on screen.
 
 ---
 
@@ -85,9 +53,7 @@ A pilot cannot simply ask “Can we take off?” and act on the first answer. Ai
 
 **Important nuance:** A graph with a deterministic planner is still a valuable *workflow*, but a language-model-driven decision is what makes the live version **AI-assisted/agentic**. “Multi-step,” “agentic,” and “multi-agent” are not synonyms.
 
-### Minute 8–10 discussion prompt
-
-Ask: “Which of these steps should AI decide, and which should enterprise policy decide?”
+“Which of these steps should AI decide, and which should enterprise policy decide?”
 
 Recommended answer: AI may help **interpret evidence and propose a plan**; enterprise policy should determine **allowed actions, approval thresholds, permissions, retry ceilings, and escalation rules**.
 
@@ -147,7 +113,7 @@ Ask learners to identify a **node**, **tool**, and **edge** in the statement: �
 
 ---
 
-## 5. Segment 3 — Reference architecture and state (00:25–00:40)
+## 5. Segment 3 — Reference architecture and state 
 
 ### A complete, small enterprise workflow
 
@@ -217,7 +183,7 @@ A tool's call returning successfully does not prove that the business goal was a
 
 ---
 
-## 6. Segment 4 — Setup and guided code walkthrough (00:40–00:55)
+## 6. Segment 4 — Setup and guided code walkthrough 
 
 ### 6.1 Environment setup (preferably before class)
 
@@ -247,14 +213,14 @@ The package ranges intentionally target the stable **LangGraph 1.x / LangChain i
 
 The script deliberately documents every meaningful code line in context, including imports, state fields, tool calls, model choices, graph edges, and the CLI. During the session, do not attempt to read all comments aloud. Instead, walk through these functions in the following order:
 
-| Minutes | Location in Python file | Explain this to beginners |
+| Location in Python file | Explain this to beginners |
 |---|---|---|
-| 40–42 | `IncidentState` | The record shared by all nodes; `events` has a reducer because parallel work appends to it. |
-| 42–45 | `check_service_health`, `search_incident_runbook`, `simulate_remediation` | LangChain `@tool` functions; their mock input/output contract; read operations vs simulated action. |
-| 45–47 | `intake_node`, `health_node`, `runbook_node` | Nodes read state and return partial updates rather than mutating the entire workflow. |
-| 47–49 | `make_plan_node`, `ProposedPlan` | Offline planner vs a structured real LLM call; allowed actions; policy guardrail after the model. |
-| 49–52 | `route_after_plan`, `approval_node`, `execute_node`, `verify_node`, `route_after_verify` | Conditional transitions, interrupt, simulated action, verification, and loop termination. |
-| 52–55 | `build_workflow`, `main` | `StateGraph`, `START`, `END`, fan-out, join, compile with checkpointer, invoke and resume. |
+|| `IncidentState` | The record shared by all nodes; `events` has a reducer because parallel work appends to it. |
+|| `check_service_health`, `search_incident_runbook`, `simulate_remediation` | LangChain `@tool` functions; their mock input/output contract; read operations vs simulated action. |
+|| `intake_node`, `health_node`, `runbook_node` | Nodes read state and return partial updates rather than mutating the entire workflow. |
+|| `make_plan_node`, `ProposedPlan` | Offline planner vs a structured real LLM call; allowed actions; policy guardrail after the model. |
+|| `route_after_plan`, `approval_node`, `execute_node`, `verify_node`, `route_after_verify` | Conditional transitions, interrupt, simulated action, verification, and loop termination. |
+|| `build_workflow`, `main` | `StateGraph`, `START`, `END`, fan-out, join, compile with checkpointer, invoke and resume. |
 
 ### 6.3 What makes the planner an AI component?
 
