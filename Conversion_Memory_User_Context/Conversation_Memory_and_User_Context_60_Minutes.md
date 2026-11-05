@@ -54,7 +54,7 @@ Use an environment without tracing enabled for the offline workshop. For an inst
 
 The exercise starter intentionally raises `NotImplementedError` until its two TODOs are completed. That is the exercise, not an installation failure. The completed solution should end with five successful scenario checks.
 
-### Instructor preparation
+### What you should do
 
 Run the three demos and the completed solution once. Keep the editor and terminal side by side. Open Demo 1 at `build_graph`, Demo 2 at `UserContext` and `memory_namespace`, and the exercise at its two TODO functions. Explain each concept before displaying its implementation.
 
@@ -66,7 +66,7 @@ The core versions actually executed are LangGraph **1.2.19**, LangChain Core **1
 
 > Ananya contacts the IT helpdesk: “My VPN keeps disconnecting. I use Windows 11, and I have already restarted the VPN client.” A minute later she asks, “What should I try next?”
 
-Ask the room: **“If the assistant receives only the second sentence, what information is missing?”**
+**“If the assistant receives only the second sentence, what information is missing?”**
 
 Expected answers include the problem, the operating system and the action already attempted. A useful assistant should avoid asking the same basic questions again or immediately recommending the step Ananya has already tried.
 
